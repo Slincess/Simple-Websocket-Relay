@@ -148,6 +148,8 @@ namespace Simple_Websocket_Relay
                                      true,
                                      CancellationToken.None
                                 );
+
+                                Console.WriteLine(clientsroom.roomID + " forwarded packet " + DateTime.Now.ToString("HH:mm:ss"));
                             }
                             catch
                             {
@@ -188,6 +190,7 @@ namespace Simple_Websocket_Relay
             Random random = new Random();
             room.roomID = random.Next(1000, 10000);
             rooms.TryAdd(room.roomID, room);
+            Console.WriteLine("room got created ID: " + room.roomID.ToString());
             return room.roomID;
         }
 
