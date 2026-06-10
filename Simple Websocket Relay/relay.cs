@@ -70,6 +70,17 @@ namespace Simple_Websocket_Relay
                     if (result.MessageType == WebSocketMessageType.Close)
                     {
                         Console.WriteLine("Client disconnected");
+                        if (isSocketInGame && clientsroom.Host == socket)
+                        {
+                            try
+                            {
+                                await HandleHostleave(clientsroom);
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine(ex.ToString());
+                            }
+                        }
                         await socket.CloseAsync(
                             WebSocketCloseStatus.NormalClosure,
                             "Bye",
@@ -91,7 +102,8 @@ namespace Simple_Websocket_Relay
                                 var joinroomresult = JoinRoom(id, socket, clientID);
                                 if (!joinroomresult.success) throw new Exception("join room failed");
                                 clientsroom = joinroomresult.room;
-                                response = $"createroom:ok:{id}";
+                                clientsroom.Host = socket;
+                                response = $"joinroom:ok:{id}";
                                 isSocketInGame = true;
                             }
                             catch(Exception ex)
@@ -162,7 +174,11 @@ namespace Simple_Websocket_Relay
             }
             catch (WebSocketException exe)
             {
-                Console.WriteLine("Client disconnected (socket error)");
+                if ( clientsroom != null && clientsroom.Host == socket) 
+                {
+                   await HandleHostleave(clientsroom);
+                }
+                Console.WriteLine("Client disconnected (socket error)" + exe);
             }
             catch (Exception ex) 
             { 
@@ -213,6 +229,24 @@ namespace Simple_Websocket_Relay
             return nextID++;
         }
 
+        private async Task HandleHostleave(Room clientsroom)
+        {
+            byte[] bufferLeavemsg = Encoding.UTF8.GetBytes($"hostleft:ok:{clientsroom.roomID}");
+            foreach (KeyValuePair<int, WebSocket> player in clientsroom.players.ToArray())
+            {
+                if (player.Value == clientsroom.Host) continue;
+
+                await player.Value.SendAsync(
+                     bufferLeavemsg,
+                     WebSocketMessageType.Binary,
+                     true,
+                     CancellationToken.None
+                );
+
+                clientsroom.players.TryRemove(player.Key, out _);
+            }
+        }
+
     }
 }
 
@@ -220,4 +254,5 @@ public class Room()
 {
     public int roomID;
     public ConcurrentDictionary<int, WebSocket> players = new ConcurrentDictionary<int, WebSocket>();
+    public WebSocket Host;
 }
