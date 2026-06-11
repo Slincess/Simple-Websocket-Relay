@@ -15,6 +15,7 @@ namespace Simple_Websocket_Relay
         ConcurrentDictionary<int, Room> rooms = new ConcurrentDictionary<int, Room>();
         int nextID = 0;
 
+
         public async Task start()
         {
            await Main();
@@ -56,6 +57,7 @@ namespace Simple_Websocket_Relay
 
             bool isSocketInGame = false;
             int clientID = GetID();
+            bool didSocketnotify = false;
             Room? clientsroom = null;
 
             try
@@ -120,8 +122,9 @@ namespace Simple_Websocket_Relay
                                 var joinroomresult = JoinRoom(id, socket, clientID);
                                 if (!joinroomresult.success) throw new Exception("join room failed");
                                 clientsroom = joinroomresult.room;
-                                response = $"joinroom:ok";
+                                response = $"joinroom:ok:{id}";
                                 isSocketInGame = true ;
+                                didSocketnotify = false;
                             }
                             catch
                             {
@@ -146,6 +149,7 @@ namespace Simple_Websocket_Relay
 
                         foreach (KeyValuePair<int, WebSocket> player in clientsroom.players.ToArray())
                         {
+                            
                             if (player.Key == clientID) continue;
 
                             WebSocket playersSocket = player.Value;
@@ -166,6 +170,38 @@ namespace Simple_Websocket_Relay
                             catch
                             {
                                 clientsroom.players.TryRemove(player.Key, out _);
+                            }
+                        }
+
+                        if (!didSocketnotify)
+                        {
+                            didSocketnotify = true;
+                            foreach (KeyValuePair<int, WebSocket> player in clientsroom.players.ToArray())
+                            {
+                                if (player.Key == clientID) continue; 
+
+                                WebSocket playersSocket = player.Value;
+
+                                if (playersSocket.State != WebSocketState.Open) continue;
+
+                                byte[] notification = Encoding.UTF8.GetBytes("clientjoined:ok");
+
+                                try
+                                {
+                                    
+                                    await playersSocket.SendAsync(
+                                        new ArraySegment<byte>(notification),
+                                        WebSocketMessageType.Text,
+                                        true,
+                                        CancellationToken.None
+                                    );
+
+                                    Console.WriteLine(clientsroom.roomID + " forwarded packet " + DateTime.Now.ToString("HH:mm:ss"));
+                                }
+                                catch
+                                {
+                                    clientsroom.players.TryRemove(player.Key, out _);
+                                }
                             }
                         }
                     }
