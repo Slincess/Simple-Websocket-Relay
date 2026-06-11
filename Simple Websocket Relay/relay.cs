@@ -105,7 +105,7 @@ namespace Simple_Websocket_Relay
                                 if (!joinroomresult.success) throw new Exception("join room failed");
                                 clientsroom = joinroomresult.room;
                                 clientsroom.Host = socket;
-                                response = $"joinroom:ok:{id}";
+                                response = $"joinroom:ok:{id}:host";
                                 isSocketInGame = true;
                             }
                             catch(Exception ex)
